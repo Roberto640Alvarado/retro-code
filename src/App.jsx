@@ -1,10 +1,12 @@
-import React from 'react';
+import React from "react";
+import Home from "./pages/Home";
 
 function App() {
   return (
     <>
-    <h1 className='text-center text-cyan-600'> Hola mundo</h1>
-
+      <div className="min-h-screen ">
+        <Home />
+      </div>
     </>
   );
 }

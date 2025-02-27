@@ -51,6 +51,20 @@ const GithubService = {
     }
   },
 
+  //Obtiene los detalles del último workflow ejecutado en un repositorio
+  getRepoWorkflowDetails: async (repoName) => {
+    try {
+      const response = await API.get(`/${repoName}/workflow/details`);
+      return response.data;
+    } catch (error) {
+      console.error(
+        `❌ Error obteniendo detalles del workflow para ${repoName}:`,
+        error
+      );
+      return null;
+    }
+  },
+
   //Obtiene el README y el código fuente de un repositorio
   getRepoFiles: async (repoName) => {
     try {

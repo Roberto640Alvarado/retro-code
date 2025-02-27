@@ -46,7 +46,7 @@ const Home = () => {
                 <ClassroomCard key={classroom.id} classroom={classroom} />
               ))
             ) : (
-              <p className="text-gray-400">No hay classrooms disponibles.</p>
+              <p className="text-gray-400">No hay classrooms disponibles</p>
             )}
           </div>
         </div>

@@ -78,5 +78,20 @@ const GithubService = {
       return null;
     }
   },
+  
+  //Agrega feedback a un Pull Request de un repositorio
+  addFeedbackToPR: async (repoName, feedback) => {
+    try {
+      const response = await API.post(`/${repoName}/pr/feedback`, { feedback });
+      return response.data;
+    } catch (error) {
+      console.error(
+        `❌ Error agregando feedback al PR de ${repoName}:`,
+        error
+      );
+      return null;
+    }
+  },
 };
 export default GithubService;
+

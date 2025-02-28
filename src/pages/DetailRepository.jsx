@@ -2,56 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import GithubService from "../services/GithubService";
 import FeedbackService from "../services/FeedbackService";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { FaCheckCircle, FaTimesCircle, FaGithub, FaClipboard } from "react-icons/fa";
+import FeedbackSection from "../components/FeedbackSection";
+import { FaGithub, FaArrowLeft } from "react-icons/fa";
 import { Toaster, toast } from "react-hot-toast";
-
-function formatFeedbackText(feedback) {
-  const parts = feedback.split(/(```cpp|```)/);
-  let isCodeBlock = false;
-
-  return parts.map((part, index) => {
-    if (part === "```cpp") {
-      isCodeBlock = true;
-      return null;
-    } else if (isCodeBlock && part !== "```") {
-      isCodeBlock = false;
-      return (
-        <div key={index} className="relative">
-          <pre className="bg-gray-900 text-green-400 p-4 rounded-md overflow-x-auto mt-2">
-            {part.trim()}
-          </pre>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(part.trim());
-              toast.success("Código copiado!");
-            }}
-            className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white p-1 rounded-md"
-          >
-            <FaClipboard />
-          </button>
-        </div>
-      );
-    } else if (part === "```") {
-      return null;
-    } else {
-      return (
-        <ReactMarkdown
-          key={index}
-          remarkPlugins={[remarkGfm]}
-          components={{
-            p: ({ node, ...props }) => <p className="text-gray-300 mt-2" {...props} />,
-            strong: ({ node, ...props }) => <strong className="text-yellow-400" {...props} />,
-            ul: ({ node, ...props }) => <ul className="list-disc list-inside text-gray-300" {...props} />,
-          }}
-        >
-          {part}
-        </ReactMarkdown>
-      );
-    }
-  });
-}
 
 function DetailRepository() {
   const { repoName } = useParams();
@@ -59,8 +12,10 @@ function DetailRepository() {
   const location = useLocation();
   const [testDetails, setTestDetails] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
 
   const grade = location.state?.grade || "Sin calificar"; 
+  const assignmentTitle = `Reporte de Calificación: ${repoName}`;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,79 +39,106 @@ function DetailRepository() {
     fetchData();
   }, [repoName]);
 
+  //Función para generar feedback con FIX
+  const handleGenerateFeedback = async () => {
+    setIsGeneratingFeedback(true);
+    const loadingToastId = toast.loading("Generando feedback...");
+
+    try {
+      const repoFiles = await GithubService.getRepoFiles(repoName);
+      if (!repoFiles || !repoFiles.readme || !repoFiles.code) {
+        toast.error("No se pudieron obtener los archivos del repositorio.");
+        return;
+      }
+
+      const newFeedback = await FeedbackService.generateFeedback(repoName, repoFiles.readme, repoFiles.code, grade);
+
+      if (newFeedback) {
+        setFeedback(newFeedback);
+        toast.success("Feedback generado con éxito.");
+      } else {
+        toast.error("No se pudo generar feedback.");
+      }
+    } catch (error) {
+      toast.error("Error al generar feedback.");
+    } finally {
+      toast.dismiss(loadingToastId);
+      setIsGeneratingFeedback(false);
+    }
+  };
+
+  //Función para agregar feedback al PR
+  const handleAddFeedbackToPR = async () => {
+    if (!feedback || !feedback.feedback) {
+      toast.error("No hay feedback disponible para enviar.");
+      return;
+    }
+
+    const response = await GithubService.addFeedbackToPR(repoName, feedback.feedback);
+    
+    if (response) {
+      toast.success("Feedback agregado al Pull Request con éxito!");
+    } else {
+      toast.error("Hubo un problema al agregar el feedback al PR.");
+    }
+  };
+
   if (!testDetails) {
     return <div className="text-white text-center mt-10">Cargando detalles del workflow...</div>;
   }
 
   return (
-    <div className="bg-gray-900 min-h-screen text-white p-6 flex justify-center">
+    <div className="bg-gray-900 min-h-screen text-white flex flex-col">
       <Toaster />
-      <div className="w-full max-w-4xl bg-gray-800 p-6 rounded-lg shadow-lg">
-        
-        {/* Nombre del repositorio y calificación */}
-        <h1 className="text-3xl font-bold text-white">{testDetails.repo}</h1>
-        <p className="text-gray-400">Workflow: {testDetails.workflow_name}</p>
-        <p className="text-gray-400">Estado: {testDetails.status}</p>
-        <p className="text-gray-400">Conclusión: {testDetails.conclusion}</p>
-        <p className="text-lg font-bold mt-2">
-          Calificación:{" "}
-          <span className="text-green-400">{grade}</span>
-        </p>
-
-        <a
-          href={testDetails.run_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 flex items-center gap-2 mt-2 underline"
+      
+      <header className="bg-gray-800 shadow-md py-4 px-6 flex items-center justify-between fixed w-full top-0 z-10">
+        <button
+          className="flex items-center text-blue-400 hover:text-blue-500 transition duration-300"
+          onClick={() => navigate(-1)}
         >
-          <FaGithub /> Ver ejecución en GitHub
-        </a>
+          <FaArrowLeft className="mr-2" /> Regresar
+        </button>
+        <h1 className="text-xl md:text-2xl font-bold text-center flex-1">{assignmentTitle}</h1>
+      </header>
 
-        {/* Resultados de Tests */}
-        <h2 className="text-2xl font-bold mt-6">Resultados de Tests</h2>
-        <div className="bg-gray-700 p-4 rounded-md mt-2 space-y-4">
-          {testDetails.testResults.map((test, index) => (
-            <div
-              key={index}
-              className={`p-4 rounded-md text-white flex items-center justify-between ${
-                test.conclusion === "success" ? "bg-green-600" : "bg-red-600"
+      <div className="mt-20 p-6 flex justify-center w-full">
+        <div className="w-full max-w-4xl bg-gray-800 p-6 rounded-lg shadow-lg">
+          
+          {/* Información general */}
+          <h2 className="text-3xl font-bold text-white">{testDetails.repo}</h2>
+          <p className="text-gray-400">Workflow: {testDetails.workflow_name}</p>
+          <p className="text-gray-400">Estado: {testDetails.status}</p>
+          <p className="text-gray-400">Conclusión: {testDetails.conclusion}</p>
+          <p className="text-lg font-bold mt-2">
+            Calificación:{" "}
+            <span className="text-green-400">{grade}</span>
+          </p>
+
+          <a href={testDetails.run_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 flex items-center gap-2 mt-2 underline">
+            <FaGithub /> Ver ejecución en GitHub
+          </a>
+
+          {/* Botón Generar Feedback*/}
+          {!feedback && (
+            <button
+              className={`mt-6 w-full px-6 py-2 rounded-md text-white transition shadow-lg ${
+                isGeneratingFeedback ? "bg-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
               }`}
+              onClick={handleGenerateFeedback}
+              disabled={isGeneratingFeedback}
             >
-              <div>
-                <h3 className="text-lg font-semibold">{test.test_name}</h3>
-                <p>Estado: {test.status}</p>
-                <p>Conclusión: {test.conclusion}</p>
-              </div>
-              {test.conclusion === "success" ? (
-                <FaCheckCircle className="text-white text-xl" />
-              ) : (
-                <FaTimesCircle className="text-white text-xl" />
-              )}
-            </div>
-          ))}
+              {isGeneratingFeedback ? "Generando..." : "Generar Feedback"}
+            </button>
+          )}
+
+          {/* Sección Feedback */}
+          <FeedbackSection feedback={feedback} handleAddFeedbackToPR={handleAddFeedbackToPR} />
         </div>
-
-        {/* Espacio para el feedback */}
-        {feedback && (
-          <div className="mt-8 p-6 bg-gray-700 rounded-md">
-            <h2 className="text-xl font-semibold mb-2">📌 Feedback del Código</h2>
-            <div className="mt-4">{formatFeedbackText(feedback.feedback)}</div>
-          </div>
-        )}
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate(-1)}
-            className="bg-blue-600 px-6 py-2 rounded-md text-white hover:bg-blue-500 transition shadow-lg"
-          >
-            Regresar
-          </button>
-        </div>
-
       </div>
     </div>
   );
 }
 
 export default DetailRepository;
+
 

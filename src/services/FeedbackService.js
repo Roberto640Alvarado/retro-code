@@ -22,11 +22,12 @@ const FeedbackService = {
   },
 
   //Generar nuevo feedback mediante AI
-  generateFeedback: async (repoName, readme, code) => {
+  generateFeedback: async (repoName, readme, code, grade) => {
     try {
       const response = await API.post(`feedback/${repoName}`, {
         readme,
         code,
+        grade
       });
       return response.data;
     } catch (error) {

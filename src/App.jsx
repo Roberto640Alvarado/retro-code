@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import RepositoriesPage from "./pages/RepositoriesPage";
+import ConfiguracionRetroalimentacion from "./pages/ConfiguracionRetroalimentacion";
 import DetailRepository from "./pages/DetailRepository";
 
 function App() {

@@ -32,62 +32,68 @@ const RepositoriesPage = () => {
   //Función para procesar y generar feedback para TODOS los repositorios
   const handleGenerateFeedbackForAll = async () => {
     setIsGenerating(true);
-
-    const reposWithFiles = [];
-
-    for (const repo of repositories) {
-
+    toast("📡 Obteniendo archivos de los repositorios...");
+  
+    const reposWithFiles = await Promise.all(
+      repositories.map(async (repo) => {
         const repoName = repo.repository?.name || "SinNombre";
-        const repoGrade = repo.grade || "Sin Calificación";
-
+  
         if (repoName === "SinNombre") {
-            toast.error("Un repositorio no tiene nombre, no se puede procesar.");
-            continue;
+          toast.error("Un repositorio no tiene nombre, no se puede procesar.");
+          return null;
         }
-
+  
         try {
-            const repoFiles = await GithubService.getRepoFiles(repoName);
-
-            if (!repoFiles || !repoFiles.readme || !repoFiles.code) {
-                toast.error(`No se encontraron archivos en ${repoName}`);
-                continue;
-            }
-
-            reposWithFiles.push({
-                name: repoName,
-                grade: repoGrade,
-                code: repoFiles.code,
-                readme: repoFiles.readme,
-            });
-
+          const repoFiles = await GithubService.getRepoFiles(repoName);
+  
+          if (!repoFiles || !repoFiles.readme || !repoFiles.code) {
+            toast.error(`❌ No se encontraron archivos en ${repoName}`);
+            return null;
+          }
+  
+          return {
+            name: repoName,
+            code: repoFiles.code,
+            readme: repoFiles.readme,
+          };
         } catch (error) {
-            toast.error(`Error obteniendo archivos de ${repoName}`);
+          toast.error(`⚠️ Error obteniendo archivos de ${repoName}`);
+          return null;
         }
-    }
-
-    for (const repoData of reposWithFiles) {
-
+      })
+    );
+  
+    //Filtrar los repositorios válidos (sin errores)
+    const validRepos = reposWithFiles.filter((repo) => repo !== null);
+  
+    toast("⚡ Generando feedback en paralelo...");
+  
+    //Generar feedback en paralelo
+    await Promise.all(
+      validRepos.map(async (repoData) => {
         try {
-            const feedback = await FeedbackService.generateFeedback(
-                repoData.name,
-                repoData.readme,
-                repoData.code,
-                repoData.grade
-            );
-
-            if (feedback) {
-                toast.success(`Feedback generado para ${repoData.name}`);
-            } else {
-                toast.error(`No se pudo generar feedback para ${repoData.name}`);
-            }
+          const feedback = await FeedbackService.generateFeedback(
+            repoData.name,
+            repoData.readme,
+            repoData.code,
+            repoData.grade
+          );
+  
+          if (feedback) {
+            toast.success(`✅ Feedback generado para ${repoData.name}`);
+          } else {
+            toast.error(`❌ No se pudo generar feedback para ${repoData.name}`);
+          }
         } catch (error) {
-            toast.error(`Error al generar feedback para ${repoData.name}`);
+          toast.error(`⚠️ Error al generar feedback para ${repoData.name}`);
         }
-    }
-
+      })
+    );
+  
     console.log("✅ Finalizó la generación de feedback para todos los repos.");
     setIsGenerating(false);
-};
+  };
+  
 
 
 
